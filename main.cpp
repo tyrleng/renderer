@@ -174,20 +174,36 @@ int main(int argc, char** argv) {
     TGAImage image(width, height, TGAImage::RGB);
     for (int i=0; i<model->nfaces(); i++) {
         std::vector<int> face = model->face(i);
-        for (int j=0; j<3; j++) {
-            Vec3f v0 = model->vert(face[j]);
-            Vec3f v1 = model->vert(face[(j+1)%3]);
-            int x0 = (v0.x+1.)*width/2.;
-            int y0 = (v0.y+1.)*height/2.;
-            int x1 = (v1.x+1.)*width/2.;
-            int y1 = (v1.y+1.)*height/2.;
-            
-            interpolateLine(x0, y0, x1, y1, image, white);
+
+        Vec2i* screen_coords = (Vec2i*)malloc(sizeof(Vec2i) * 3);
+
+        // for every vertex in the face
+        for (int j=0; j<3; j++) { 
+
+            Vec3f vertInWorld = model->vert(face[j]);
+
+            int x = (vertInWorld.x+1.)*width/2.;
+            int y = (vertInWorld.y+1.)*height/2.;            
+
+            screen_coords[j] = Vec2i(x,y);
+
+            // Draw a line betweeen the current vertice plus the adjacent vertice. 
+            // the modulus creates the loop around for the end vertice because it'll need to use the starting vertice.
+            // Vec3f v0 = model->vert(face[j]);
+            // Vec3f v1 = model->vert(face[(j+1)%3]);
+            // int x0 = (v0.x+1.)*width/2.;
+            // int y0 = (v0.y+1.)*height/2.;
+            // int x1 = (v1.x+1.)*width/2.;
+            // int y1 = (v1.y+1.)*height/2.;
+            // Vec2i pointStart = Vec2i(x0,y0);
+            // Vec2i pointEnd = Vec2i(x1,y1);
+            // DrawLine(pointStart, pointEnd, image, white);
         }
+        DrawFilledTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
     }
 
     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
-    image.write_tga_file("output.tga");
+    image.write_tga_file("outputWireRenderHead.tga");
     delete model;
     return 0;
 }
