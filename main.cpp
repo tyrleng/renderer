@@ -17,14 +17,16 @@ const int height = 300;
 
 float* Interpolate (int x0, int y0, int x1, int y1) {
     if(x0 == x1) {
-        return NULL;
+        float* dependentValue = (float*)malloc(sizeof(float)*1);
+        dependentValue[0] = y0;
+        return dependentValue;
     }
 
-    float *dependentValues = (float*) malloc(sizeof(int) * (x1-x0));
+    float *dependentValues = (float*) malloc(sizeof(float) * (x1 - x0 + 1));
 
     float d = (y1-y0)/(float)(x1-x0);
     float interpolatedY = y0;
-    for(int i = x0; i < x1; i++) {
+    for(int i = x0; i <= x1; i++) {
         dependentValues[i - x0] = interpolatedY;
         interpolatedY += d;
     }
@@ -58,7 +60,7 @@ void DrawLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
         }
 
         float* dependentValues = Interpolate(x0,y0,x1,y1);
-        for (int i = x0; i < x1; i++) {
+        for (int i = x0; i <= x1; i++) {
             image.set(i, dependentValues[i - x0], color);
         }
     }
@@ -77,7 +79,7 @@ void DrawLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
             y1 = swapY;
         }
         float* dependentValues = Interpolate(y0,x0,y1,x1);
-        for(int i = y0; i < y1; i++) {
+        for(int i = y0; i <= y1; i++) {
             image.set(dependentValues[i - y0], i, color);
         }
     }
@@ -114,15 +116,17 @@ void DrawFilledTriangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor 
   // combine the two lines to form the other side of the triangle.
     float* x012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
     for(int y = v0.y; y < v1.y; y++) {
-        x012_InterpolatedValues[y - v0.y] = x01_InterpolatedValues[y-v0.y];
+        // x012_InterpolatedValues[y - v0.y] = x01_InterpolatedValues[y-v0.y];
+        *(x012_InterpolatedValues + y - v0.y) = *(x01_InterpolatedValues + y - v0.y);
     }
     for(int y = v1.y; y <= v2.y; y++) {
-        x012_InterpolatedValues[y-v0.y] = x12_InterpolatedValues[y-v1.y];
+        // x012_InterpolatedValues[y-v0.y] = x12_InterpolatedValues[y-v1.y];
+        *(x012_InterpolatedValues + y - v0.y) = *(x12_InterpolatedValues + y - v1.y);
     }
 
     float* x_LeftInterpolatedValues;
     float* x_RightInterpolatedValues;
-    int middleIndex = (v2.y - v0.y + 1) / 2;
+    int middleIndex = (v2.y - v0.y) / 2 + 1;
     if(x012_InterpolatedValues[middleIndex] < x02_InterpolatedValues[middleIndex]) {
         x_LeftInterpolatedValues = x012_InterpolatedValues;
         x_RightInterpolatedValues = x02_InterpolatedValues;
@@ -136,14 +140,13 @@ void DrawFilledTriangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor 
     for(int y = v0.y; y <= v2.y; y++) {
         int xStart = x_LeftInterpolatedValues[y-v0.y];
         int xEnd = x_RightInterpolatedValues[y-v0.y];
-        for(int x = xStart; x < xEnd; x++) {
+        for(int x = xStart; x <= xEnd; x++) {
             image.set(x, y, color);
         }
     }
 }
 
 // int main(int argc, char** argv) {
-//     // setvbuf(stdout, NULL, _IOLBF, 0);
 
 //     TGAImage image(width,height, TGAImage::RGB);
    
@@ -187,23 +190,14 @@ int main(int argc, char** argv) {
 
             screen_coords[j] = Vec2i(x,y);
 
-            // Draw a line betweeen the current vertice plus the adjacent vertice. 
-            // the modulus creates the loop around for the end vertice because it'll need to use the starting vertice.
-            // Vec3f v0 = model->vert(face[j]);
-            // Vec3f v1 = model->vert(face[(j+1)%3]);
-            // int x0 = (v0.x+1.)*width/2.;
-            // int y0 = (v0.y+1.)*height/2.;
-            // int x1 = (v1.x+1.)*width/2.;
-            // int y1 = (v1.y+1.)*height/2.;
-            // Vec2i pointStart = Vec2i(x0,y0);
-            // Vec2i pointEnd = Vec2i(x1,y1);
-            // DrawLine(pointStart, pointEnd, image, white);
         }
         DrawFilledTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
+        // DrawLineTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
     }
 
     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
-    image.write_tga_file("outputWireRenderHead.tga");
+    image.write_tga_file("outputRenderHead.tga");
+    // image.write_tga_file("outputWireRenderHead.tga");
     delete model;
     return 0;
 }
