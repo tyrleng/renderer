@@ -23,7 +23,7 @@ float* Interpolate (int x0, int y0, int x1, int y1) {
         return dependentValue;
     }
 
-    float *dependentValues = (float*) malloc(sizeof(float) * (x1 - x0 + 1));
+    float *dependentValues = (float*) malloc(sizeof(float) * abs((x1 - x0 + 1)));
 
     float d = (y1-y0)/(float)(x1-x0);
     float interpolatedY = y0;
@@ -151,7 +151,13 @@ void DrawFilledTriangle(Vec2i screen_coords[], float zValue[], TGAImage &image, 
     }
 }
 
-void Swap3dVertices(Vec3i &v0, Vec3i &v1) {
+void SwapVec3iVertices(Vec3i &v0, Vec3i &v1) {
+    Vec3i swap = v0;
+    v0 = v1;
+    v1 = swap;
+}
+
+void SwapVec3fVertices(Vec3f &v0, Vec3f &v1) {
     Vec3f swap = v0;
     v0 = v1;
     v1 = swap;
@@ -160,13 +166,18 @@ void Swap3dVertices(Vec3i &v0, Vec3i &v1) {
 Vec3i ConvertIntoScreenCoordAndZBuffer(Vec3f v) {
     int x = (v.x+1.)*width/2.;
     int y = (v.y+1.)*height/2.;
-    int z = (v.z+1.)*height/2.; // using height is arbitrary. Just needed to convert the z values into bigger integer values so that they won't cause problems with all the integer calculations and functions.
+    // using height as the scaling value is arbitrary. Just needed to convert the z values into bigger integer values so that they won't cause problems with all the integer calculations and functions.
+    int z = (v.z+1.)*height/2.;
     return Vec3i(x,y,z);
 }
 
-float* CreateZBuffer() {
-    float* zBuffer = (float*)malloc(sizeof(float) * height * width);
-    for (int i=width*height; i--; zBuffer[i] = -std::numeric_limits<float>::max());
+float* GetZBuffer() {
+    static float zBuffer[height*width];
+    static bool created;
+    if (!created) {
+        for (int i=width*height; i--; zBuffer[i] = -std::numeric_limits<float>::max());
+        created = true;
+    }
     return zBuffer;
 }
 
@@ -175,9 +186,18 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], TGAImage &image, TGACo
     Vec3i v1 = ConvertIntoScreenCoordAndZBuffer(world_coords[1]);
     Vec3i v2 = ConvertIntoScreenCoordAndZBuffer(world_coords[2]);
 
-    if(v0.y > v1.y) Swap3dVertices(v0,v1); // v1 cfm more than v0
-    if(v0.y > v2.y) Swap3dVertices(v0,v2); // v2 and v1 cfm more than v0
-    if(v1.y > v2.y) Swap3dVertices(v1,v2); // v2 cfm more than v1
+    if(v0.y > v1.y) {
+        SwapVec3fVertices(world_coords[0], world_coords[1]);
+        SwapVec3iVertices(v0,v1); // v1 cfm more than v0
+    }
+    if(v0.y > v2.y) {
+        SwapVec3fVertices(world_coords[0], world_coords[2]);
+        SwapVec3iVertices(v0,v2); // v2 and v1 cfm more than v0
+    } 
+    if(v1.y > v2.y) {
+        SwapVec3fVertices(world_coords[1], world_coords[2]);
+        SwapVec3iVertices(v1,v2); // v2 cfm more than v1
+    }
 
     // for each y value on the edge, get the interpolated x values.
     float* x01_InterpolatedValues = Interpolate(v0.y, v0.x, v1.y, v1.x);
@@ -194,12 +214,12 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], TGAImage &image, TGACo
     float* z012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
 
     for(int y = v0.y; y < v1.y; y++) {
-        x012_InterpolatedValues[y - v0.y] = x01_InterpolatedValues[y-v0.y];
-        z012_InterpolatedValues[y - v0.y] = z01_InterpolatedValues[y-v0.y];
+        x012_InterpolatedValues[y-v0.y] = x01_InterpolatedValues[y-v0.y];
+        z012_InterpolatedValues[y-v0.y] = z01_InterpolatedValues[y-v0.y];
     }
     for(int y = v1.y; y <= v2.y; y++) {
         x012_InterpolatedValues[y-v0.y] = x12_InterpolatedValues[y-v1.y];
-        z012_InterpolatedValues[y-v0.y] = x12_InterpolatedValues[y-v1.y];
+        z012_InterpolatedValues[y-v0.y] = z12_InterpolatedValues[y-v1.y];
     }
 
     float* x_LeftInterpolatedValues;
@@ -220,7 +240,7 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], TGAImage &image, TGACo
         z_RightInterpolatedValues = z012_InterpolatedValues;
     }
 
-    float* zBuffer = CreateZBuffer();
+    float* zBuffer = GetZBuffer();
 
     // then interpolate the values between the two lines.
     // for each interpolation, draw the pixel values.
@@ -297,23 +317,26 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
 
     for (int i=0; i<model->nfaces(); i++) {
         std::vector<int> face = model->face(i); 
-        Vec3f world_coords[3]; 
-        Vec2i screen_coords[3];
+        Vec3f* world_coords = (Vec3f*)malloc(sizeof(Vec3f) * 3); 
+        // Vec2i screen_coords[3];
        for (int j=0; j<3; j++) {
-            Vec3f v = model->vert(face[j]); 
-            world_coords[j]  = v; 
-            screen_coords[j] = Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.); // from "camera space" to screen space. But there isn't really a camera yet.
-         }
+            Vec3f v = model->vert(face[j]);
+            world_coords[j]  = v;
+            // from "camera space" to screen space. But there isn't really a camera yet.
+            // screen_coords[j] = Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.); 
+        }
         // cross product of the two lines of the triangles. Gives the normal of triangle.
         Vec3f n = (world_coords[2]-world_coords[0])^(world_coords[1]-world_coords[0]); 
-        n.normalize(); 
+        n.normalize();
         float intensity = n*light_dir; // dot product for the degree to which the light vector and the normal are parallel. The more the better illuminated.
-        if (intensity>0) { 
-            DrawFilledTriangle(screen_coords, NULL, image, TGAColor(intensity*255, intensity*255, intensity*255, 255)); 
+        if (intensity>0) {
+            // DrawFilledTriangle(screen_coords, NULL, image, TGAColor(intensity*255, intensity*255, intensity*255, 255));
+            DrawFilledTriangleExperimental(world_coords, image, TGAColor(intensity*255, intensity*255, intensity*255, 255));
         }
+        free(world_coords);
     }
     image.flip_vertically();
-    image.write_tga_file("outputFlatIlluminatedHead.tga");
+    image.write_tga_file("outputFlatIlluminatedDepthHead.tga");
 }
 
 int main(int argc, char** argv) {
