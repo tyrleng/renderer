@@ -141,6 +141,14 @@ void DrawFilledTriangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor 
         int xStart = x_LeftInterpolatedValues[y-v0.y];
         int xEnd = x_RightInterpolatedValues[y-v0.y];
         for(int x = xStart; x <= xEnd; x++) {
+
+            // Have a z buffer initialised all to negative infinity.
+            // Interpolate the z values of the 3 vertices. First need to be interpolated amongst the edges. Then interpolated for each horizontal scanline.
+            // For each pixel value, determine if the pixel should or shouldn't be displayed.
+            // If displayed, write the z value to the depth buffer. Later pixels will then need to challenge this depth value.
+
+            // Scratch used perspective projection, but tiny just goes from camera to canvas. No perspective projection into viewport first.
+
             image.set(x, y, color);
         }
     }
@@ -184,8 +192,8 @@ void DrawLineOrFilledHead(Model* model, TGAImage &image) {
     }
 
     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image.
-    image.write_tga_file("outputRenderHead.tga");
-    // image.write_tga_file("outputWireRenderHead.tga");
+    image.write_tga_file("outputFilledTriangleHead.tga");
+    // image.write_tga_file("outputLIneTriangleHead.tga");
     delete model;
 }
 
@@ -194,17 +202,17 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
 
     for (int i=0; i<model->nfaces(); i++) {
         std::vector<int> face = model->face(i); 
-        Vec2i screen_coords[3]; 
         Vec3f world_coords[3]; 
-        for (int j=0; j<3; j++) { 
+        Vec2i screen_coords[3];
+       for (int j=0; j<3; j++) {
             Vec3f v = model->vert(face[j]); 
-            screen_coords[j] = Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.); // from "camera space" to screen space. But there isn't really a camera yet.
             world_coords[j]  = v; 
-        } 
+            screen_coords[j] = Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.); // from "camera space" to screen space. But there isn't really a camera yet.
+         }
         // cross product of the two lines of the triangles. Gives the normal of triangle.
         Vec3f n = (world_coords[2]-world_coords[0])^(world_coords[1]-world_coords[0]); 
         n.normalize(); 
-        float intensity = n*light_dir; // dot product for the degree to which the light vector and the normal are parallel. The more the better.
+        float intensity = n*light_dir; // dot product for the degree to which the light vector and the normal are parallel. The more the better illuminated.
         if (intensity>0) { 
             DrawFilledTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(intensity*255, intensity*255, intensity*255, 255)); 
         }
