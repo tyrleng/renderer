@@ -4,6 +4,7 @@
 #include "model.h"
 #include "geometry.h"
 #include "stdlib.h"
+#include <limits>
 #include <stdio.h>
 
 const TGAColor white = TGAColor(255,255,255,255);
@@ -91,24 +92,28 @@ void DrawLineTriangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor co
     DrawLine(v1, v2,image,color);
 }
 
-void SwapVertices(Vec2i &v0, Vec2i &v1) {
+void Swap2dVertices(Vec2i &v0, Vec2i &v1) {
     Vec2i interim = v0;
     v0 = v1;
     v1 = interim;
 }
 
-void DrawFilledTriangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
+void DrawFilledTriangle(Vec2i screen_coords[], float zValue[], TGAImage &image, TGAColor color) {
+
+    Vec2i v0 = screen_coords[0];
+    Vec2i v1 = screen_coords[1];
+    Vec2i v2 = screen_coords[2];
     
-    DrawLineTriangle(v0,v1,v2,image, color);
+    // DrawLineTriangle(v0,v1,v2,image, color);
 
   // the line between bottomost and topmost forms one side of the triangle. The other side is made of 2 lines. One from top to middle, then one from middle to bottom.
 
   // sort the vertices from bottom to up in the y direction.
-    if(v0.y > v1.y) SwapVertices(v0,v1); // v1 cfm more than v0
-    if(v0.y > v2.y) SwapVertices(v0,v2); // v2 and v1 cfm more than v0
-    if(v1.y > v2.y) SwapVertices(v1,v2); // v2 cfm more than v1
+    if(v0.y > v1.y) Swap2dVertices(v0,v1); // v1 cfm more than v0
+    if(v0.y > v2.y) Swap2dVertices(v0,v2); // v2 and v1 cfm more than v0
+    if(v1.y > v2.y) Swap2dVertices(v1,v2); // v2 cfm more than v1
 
-  // for each y and then each line, get the x value that corresponds to the y value.
+  // for each y and thereby each line, get the x value that corresponds to the y value.
     float* x01_InterpolatedValues = Interpolate(v0.y, v0.x, v1.y, v1.x);
     float* x12_InterpolatedValues = Interpolate(v1.y, v1.x, v2.y, v2.x);
     float* x02_InterpolatedValues = Interpolate(v0.y, v0.x, v2.y, v2.x);
@@ -141,15 +146,105 @@ void DrawFilledTriangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor 
         int xStart = x_LeftInterpolatedValues[y-v0.y];
         int xEnd = x_RightInterpolatedValues[y-v0.y];
         for(int x = xStart; x <= xEnd; x++) {
+            image.set(x, y, color);
+        }
+    }
+}
 
-            // Have a z buffer initialised all to negative infinity.
-            // Interpolate the z values of the 3 vertices. First need to be interpolated amongst the edges. Then interpolated for each horizontal scanline.
+void Swap3dVertices(Vec3i &v0, Vec3i &v1) {
+    Vec3f swap = v0;
+    v0 = v1;
+    v1 = swap;
+}
+
+Vec3i ConvertIntoScreenCoordAndZBuffer(Vec3f v) {
+    int x = (v.x+1.)*width/2.;
+    int y = (v.y+1.)*height/2.;
+    int z = (v.z+1.)*height/2.; // using height is arbitrary. Just needed to convert the z values into bigger integer values so that they won't cause problems with all the integer calculations and functions.
+    return Vec3i(x,y,z);
+}
+
+float* CreateZBuffer() {
+    float* zBuffer = (float*)malloc(sizeof(float) * height * width);
+    for (int i=width*height; i--; zBuffer[i] = -std::numeric_limits<float>::max());
+    return zBuffer;
+}
+
+void DrawFilledTriangleExperimental(Vec3f world_coords[], TGAImage &image, TGAColor color) {
+    Vec3i v0 = ConvertIntoScreenCoordAndZBuffer(world_coords[0]);
+    Vec3i v1 = ConvertIntoScreenCoordAndZBuffer(world_coords[1]);
+    Vec3i v2 = ConvertIntoScreenCoordAndZBuffer(world_coords[2]);
+
+    if(v0.y > v1.y) Swap3dVertices(v0,v1); // v1 cfm more than v0
+    if(v0.y > v2.y) Swap3dVertices(v0,v2); // v2 and v1 cfm more than v0
+    if(v1.y > v2.y) Swap3dVertices(v1,v2); // v2 cfm more than v1
+
+    // for each y value on the edge, get the interpolated x values.
+    float* x01_InterpolatedValues = Interpolate(v0.y, v0.x, v1.y, v1.x);
+    float* x12_InterpolatedValues = Interpolate(v1.y, v1.x, v2.y, v2.x);
+    float* x02_InterpolatedValues = Interpolate(v0.y, v0.x, v2.y, v2.x); // remember that x02 is the longest edge.
+
+    // for each y value on the edge, get the interpolated z values.
+    float* z01_InterpolatedValues = Interpolate(v0.y, v0.z, v1.y, v1.z);
+    float* z12_InterpolatedValues = Interpolate(v1.y, v1.z, v2.y, v2.z);
+    float* z02_InterpolatedValues = Interpolate(v0.y, v0.z, v1.y, v1.z); // remember that z02 is the longest edge.
+
+    // combine the two lines to form the other side of the triangle.
+    float* x012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
+    float* z012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
+
+    for(int y = v0.y; y < v1.y; y++) {
+        x012_InterpolatedValues[y - v0.y] = x01_InterpolatedValues[y-v0.y];
+        z012_InterpolatedValues[y - v0.y] = z01_InterpolatedValues[y-v0.y];
+    }
+    for(int y = v1.y; y <= v2.y; y++) {
+        x012_InterpolatedValues[y-v0.y] = x12_InterpolatedValues[y-v1.y];
+        z012_InterpolatedValues[y-v0.y] = x12_InterpolatedValues[y-v1.y];
+    }
+
+    float* x_LeftInterpolatedValues;
+    float* x_RightInterpolatedValues;
+    float* z_LeftInterpolatedValues;
+    float* z_RightInterpolatedValues;
+
+    int middleIndex = (v2.y - v0.y) / 2 + 1;
+    if(x012_InterpolatedValues[middleIndex] < x02_InterpolatedValues[middleIndex]) {
+        x_LeftInterpolatedValues = x012_InterpolatedValues;
+        x_RightInterpolatedValues = x02_InterpolatedValues;
+        z_LeftInterpolatedValues = z012_InterpolatedValues;
+        z_RightInterpolatedValues = z02_InterpolatedValues;
+    } else {
+        x_LeftInterpolatedValues = x02_InterpolatedValues;
+        x_RightInterpolatedValues = x012_InterpolatedValues;
+        z_LeftInterpolatedValues = z02_InterpolatedValues;
+        z_RightInterpolatedValues = z012_InterpolatedValues;
+    }
+
+    float* zBuffer = CreateZBuffer();
+
+    // then interpolate the values between the two lines.
+    // for each interpolation, draw the pixel values.
+    for(int y = v0.y; y <= v2.y; y++) {
+        int xStart = x_LeftInterpolatedValues[y-v0.y];
+        int xEnd = x_RightInterpolatedValues[y-v0.y];
+        int zStart = z_LeftInterpolatedValues[y-v0.y];
+        int zEnd = z_RightInterpolatedValues[y-v0.y];
+
+        // interpolate the values of z from one edge to another.
+        // the previous z interpolations determined the value of z at the edges. But now you want to know the value of z at every pixel within the horizontal line being drawn.
+        float* interpolatedZ = Interpolate(xStart, zStart, xEnd, zEnd);
+        
+        for(int x = xStart; x <= xEnd; x++) {
+            int bufferIndex = y * height + x;
+            float zValue = interpolatedZ[x - xStart];
+            if(zBuffer[bufferIndex] < zValue) {
+                zBuffer[bufferIndex] = zValue;
+                image.set(x, y, color);
+            }
             // For each pixel value, determine if the pixel should or shouldn't be displayed.
             // If displayed, write the z value to the depth buffer. Later pixels will then need to challenge this depth value.
 
             // Scratch used perspective projection, but tiny just goes from camera to canvas. No perspective projection into viewport first.
-
-            image.set(x, y, color);
         }
     }
 }
@@ -160,11 +255,11 @@ void DrawSimpleFilledTriangles(TGAImage &image) {
     Vec2i t2[3] = {Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180)};
     Vec2i t3[3] = {Vec2i(200, 50), Vec2i(230, 280), Vec2i(260, 140)};
     Vec2i t4[3] = {Vec2i(10,200), Vec2i(80, 280), Vec2i(140, 210)};
-    DrawFilledTriangle(t0[0], t0[1], t0[2], image, red); 
-    DrawFilledTriangle(t1[0], t1[1], t1[2], image, white); 
-    DrawFilledTriangle(t2[0], t2[1], t2[2], image, green);
-    DrawFilledTriangle(t3[0], t3[1], t3[2], image, yellow);
-    DrawFilledTriangle(t4[0], t4[1], t4[2], image, blue);
+    DrawFilledTriangle(t0, NULL, image, red); 
+    DrawFilledTriangle(t1, NULL, image, white); 
+    DrawFilledTriangle(t2, NULL, image, green);
+    DrawFilledTriangle(t3, NULL, image, yellow);
+    DrawFilledTriangle(t4, NULL, image, blue);
     image.flip_vertically();
     image.write_tga_file("outputTriangle.tga");
 }
@@ -187,7 +282,7 @@ void DrawLineOrFilledHead(Model* model, TGAImage &image) {
             screen_coords[j] = Vec2i(x,y);
 
         }
-        DrawFilledTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
+        DrawFilledTriangle(screen_coords, NULL, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
         DrawLineTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
     }
 
@@ -214,7 +309,7 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
         n.normalize(); 
         float intensity = n*light_dir; // dot product for the degree to which the light vector and the normal are parallel. The more the better illuminated.
         if (intensity>0) { 
-            DrawFilledTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(intensity*255, intensity*255, intensity*255, 255)); 
+            DrawFilledTriangle(screen_coords, NULL, image, TGAColor(intensity*255, intensity*255, intensity*255, 255)); 
         }
     }
     image.flip_vertically();
