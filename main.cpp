@@ -207,7 +207,7 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], TGAImage &image, TGACo
     // for each y value on the edge, get the interpolated z values.
     float* z01_InterpolatedValues = Interpolate(v0.y, v0.z, v1.y, v1.z);
     float* z12_InterpolatedValues = Interpolate(v1.y, v1.z, v2.y, v2.z);
-    float* z02_InterpolatedValues = Interpolate(v0.y, v0.z, v1.y, v1.z); // remember that z02 is the longest edge.
+    float* z02_InterpolatedValues = Interpolate(v0.y, v0.z, v2.y, v2.z); // remember that z02 is the longest edge.
 
     // combine the two lines to form the other side of the triangle.
     float* x012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
