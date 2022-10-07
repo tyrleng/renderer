@@ -212,7 +212,6 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], TGAImage &image, TGACo
     // combine the two lines to form the other side of the triangle.
     float* x012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
     float* z012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
-
     for(int y = v0.y; y < v1.y; y++) {
         x012_InterpolatedValues[y-v0.y] = x01_InterpolatedValues[y-v0.y];
         z012_InterpolatedValues[y-v0.y] = z01_InterpolatedValues[y-v0.y];
@@ -222,6 +221,7 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], TGAImage &image, TGACo
         z012_InterpolatedValues[y-v0.y] = z12_InterpolatedValues[y-v1.y];
     }
 
+    // Now interpolate the values. Begin from the left line and interpolate across to the right line.
     float* x_LeftInterpolatedValues;
     float* x_RightInterpolatedValues;
     float* z_LeftInterpolatedValues;
@@ -284,44 +284,48 @@ void DrawSimpleFilledTriangles(TGAImage &image) {
     image.write_tga_file("outputTriangle.tga");
 }
 
-void DrawLineOrFilledHead(Model* model, TGAImage &image) {
-    for (int i=0; i<model->nfaces(); i++) {
-        std::vector<int> face = model->face(i);
+// void DrawLineOrFilledHead(Model* model, TGAImage &image) {
+//     for (int i=0; i<model->nfaces(); i++) {
+//         std::vector<int> face = model->face(i);
 
-        Vec2i* screen_coords = (Vec2i*)malloc(sizeof(Vec2i) * 3);
+//         Vec2i* screen_coords = (Vec2i*)malloc(sizeof(Vec2i) * 3);
 
-        // for every vertex in the face
-        for (int j=0; j<3; j++) { 
+//         // for every vertex in the face
+//         for (int j=0; j<3; j++) { 
 
-            Vec3f vertInWorld = model->vert(face[j]);
-            // the wavefront obj vertices are stored in normalised range of (-1 to 1). By adding 1, we normalise to (0,2).
-            // That's why division by 2 happens, to normalise down to (0,1).
-            int x = (vertInWorld.x+1.)*width/2.;
-            int y = (vertInWorld.y+1.)*height/2.;            
+//             Vec3f vertInWorld = model->vert(face[j]);
+//             // the wavefront obj vertices are stored in normalised range of (-1 to 1). By adding 1, we normalise to (0,2).
+//             // That's why division by 2 happens, to normalise down to (0,1).
+//             int x = (vertInWorld.x+1.)*width/2.;
+//             int y = (vertInWorld.y+1.)*height/2.;            
 
-            screen_coords[j] = Vec2i(x,y);
+//             screen_coords[j] = Vec2i(x,y);
 
-        }
-        DrawFilledTriangle(screen_coords, NULL, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
-        DrawLineTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
-    }
+//         }
+//         DrawFilledTriangle(screen_coords, NULL, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
+//         DrawLineTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
+//     }
 
-    image.flip_vertically(); // i want to have the origin at the left bottom corner of the image.
-    image.write_tga_file("outputFilledTriangleHead.tga");
-    // image.write_tga_file("outputLIneTriangleHead.tga");
-    delete model;
-}
+//     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image.
+//     image.write_tga_file("outputFilledTriangleHead.tga");
+//     // image.write_tga_file("outputLIneTriangleHead.tga");
+//     delete model;
+// }
 
 void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
     Vec3f light_dir(0,0,-1); // define light_dir, I guess it's using right hand coord system?
 
     for (int i=0; i<model->nfaces(); i++) {
-        std::vector<int> face = model->face(i); 
-        Vec3f* world_coords = (Vec3f*)malloc(sizeof(Vec3f) * 3); 
+        std::vector<int> faceVertices = model->faceVertexCoordinates(i); // each face possesses 3 values corresponding to the 3 vertex coordinates that form the face.
+        std::vector<int> faceTextures = model->faceTextureCoordinates(i);
+        Vec3f* world_coords = (Vec3f*)malloc(sizeof(Vec3f) * 3);
+        Vec3f* texture_coords = (Vec3f*)malloc(sizeof(Vec3f) * 3);
         // Vec2i screen_coords[3];
        for (int j=0; j<3; j++) {
-            Vec3f v = model->vert(face[j]);
+            Vec3f v = model->vert(faceVertices[j]);
             world_coords[j]  = v;
+            Vec3f uv = model->vert(faceTextures[j]);
+            texture_coords[j] = uv;
             // from "camera space" to screen space. But there isn't really a camera yet.
             // screen_coords[j] = Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.); 
         }
@@ -331,6 +335,8 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
         float intensity = n*light_dir; // dot product for the degree to which the light vector and the normal are parallel. The more the better illuminated.
         if (intensity>0) {
             // DrawFilledTriangle(screen_coords, NULL, image, TGAColor(intensity*255, intensity*255, intensity*255, 255));
+
+            // Need to pass in texture. The texture needs to then be interpolated.
             DrawFilledTriangleExperimental(world_coords, image, TGAColor(intensity*255, intensity*255, intensity*255, 255));
         }
         free(world_coords);
@@ -339,7 +345,7 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
     image.write_tga_file("outputFlatIlluminatedDepthHead.tga");
 }
 
-// read in texture file.
+// Read in texture file.
 // Find the 3 vt corresponding to each vertice in a face.
 // interpolate the vt values along the 3 lines
 // for each y value, then interpolate across the line.
@@ -355,6 +361,6 @@ int main(int argc, char** argv) {
     TGAImage image(width, height, TGAImage::RGB);
     // DrawLineOrFilledHead(model, image);    
     // DrawSimpleFilledTriangles(image);
-    // DrawFlatIlluminatedHead(model, image);
+    DrawFlatIlluminatedHead(model, image);
     return 0;
 }
