@@ -193,7 +193,7 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], TGAImage &image, TGACo
     if(v0.y > v2.y) {
         SwapVec3fVertices(world_coords[0], world_coords[2]);
         SwapVec3iVertices(v0,v2); // v2 and v1 cfm more than v0
-    } 
+    }
     if(v1.y > v2.y) {
         SwapVec3fVertices(world_coords[1], world_coords[2]);
         SwapVec3iVertices(v1,v2); // v2 cfm more than v1
@@ -339,6 +339,12 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
     image.write_tga_file("outputFlatIlluminatedDepthHead.tga");
 }
 
+// read in texture file.
+// Find the 3 vt corresponding to each vertice in a face.
+// interpolate the vt values along the 3 lines
+// for each y value, then interpolate across the line.
+// then multiply the lighting with the vt colour.
+
 int main(int argc, char** argv) {
     Model *model = NULL;
     if (2==argc) {
@@ -349,6 +355,6 @@ int main(int argc, char** argv) {
     TGAImage image(width, height, TGAImage::RGB);
     // DrawLineOrFilledHead(model, image);    
     // DrawSimpleFilledTriangles(image);
-    DrawFlatIlluminatedHead(model, image);
+    // DrawFlatIlluminatedHead(model, image);
     return 0;
 }
