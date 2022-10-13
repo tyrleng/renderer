@@ -316,16 +316,17 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
     Vec3f light_dir(0,0,-1); // define light_dir, I guess it's using right hand coord system?
 
     for (int i=0; i<model->nfaces(); i++) {
-        std::vector<int> faceVertices = model->faceVertexCoordinates(i); // each face possesses 3 values corresponding to the 3 vertex coordinates that form the face.
-        std::vector<int> faceTextures = model->faceTextureCoordinates(i);
+        std::vector<int> faceVertices = model->faceVertexIndices(i); // returns the 3 coordinate indices for the face.
+        std::vector<int> faceTextures = model->faceTextureIndices(i); // returns the 3 texture indices for the face.
         Vec3f* world_coords = (Vec3f*)malloc(sizeof(Vec3f) * 3);
         Vec3f* texture_coords = (Vec3f*)malloc(sizeof(Vec3f) * 3);
         // Vec2i screen_coords[3];
        for (int j=0; j<3; j++) {
-            Vec3f v = model->vert(faceVertices[j]);
-            world_coords[j]  = v;
-            Vec3f uv = model->vert(faceTextures[j]);
-            texture_coords[j] = uv;
+            Vec3f v = model->vert(faceVertices[j]); // get the actual vertex coordinate values based on the index passed in from the face. The Vec3f encapsulates the x,y,z values.
+            world_coords[j]  = v; // every 3 vertex coordinate values form one world_coords face.
+            Vec3f uv = model->vertTextures(faceTextures[j]); // get the actual vertex texture coordinate values based on the index passed in from the face. The Vec3f encapsulates the u,v,z values.
+            texture_coords[j] = uv; // every 3 values form one texture_coords face.
+            
             // from "camera space" to screen space. But there isn't really a camera yet.
             // screen_coords[j] = Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.); 
         }

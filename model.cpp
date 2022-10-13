@@ -5,7 +5,7 @@
 #include <vector>
 #include "model.h"
 
-Model::Model(const char *filename) : verts_(), faceVertexCoordinates_(), faceTextureCoordinates_() {
+Model::Model(const char *filename) : verts_(), faceVertexIndices_(), faceTextureIndices_() {
     std::ifstream in;
     in.open (filename, std::ifstream::in);
     if (in.fail()) return;
@@ -34,21 +34,21 @@ Model::Model(const char *filename) : verts_(), faceVertexCoordinates_(), faceTex
         }
         
          else if (!line.compare(0, 2, "f ")) {
-            std::vector<int> vertices, textures;
+            std::vector<int> verticesIndex, texturesIndex;
             int vertex, texture, normal;
             iss >> trash; // trashes the 'f' character
             while (iss >> vertex >> trash >> texture >> trash >> normal) {
                 // The three numbers (vertex, texture, normal) held by each group are the vertex coordinates, the texture coordinate and the vertex normal.
                 // trash throws away the forward slashes (/)
                 vertex--; // in wavefront obj all indices start at 1, not zero. So need to adjust by -1.
-                vertices.push_back(vertex);
-                textures.push_back(texture);
+                verticesIndex.push_back(vertex); // will gain 3 index values per face
+                texturesIndex.push_back(texture); // will gain 3 index values per face
             }
-            faceVertexCoordinates_.push_back(vertices);
-            faceTextureCoordinates_.push_back(textures);
+            faceVertexIndices_.push_back(verticesIndex);
+            faceTextureIndices_.push_back(texturesIndex);
         }
     }
-    std::cerr << "# v# " << verts_.size() << " f# "  << faceVertexCoordinates_.size() << std::endl;
+    std::cerr << "# v# " << verts_.size() << " f# "  << faceVertexIndices_.size() << std::endl;
 }
 
 Model::~Model() {
@@ -59,15 +59,15 @@ int Model::nverts() {
 }
 
 int Model::nfaces() {
-    return (int)faceVertexCoordinates_.size();
+    return (int)faceVertexIndices_.size();
 }
 
-std::vector<int> Model::faceVertexCoordinates(int idx) {
-    return faceVertexCoordinates_[idx];
+std::vector<int> Model::faceVertexIndices(int faceIndex) {
+    return faceVertexIndices_[faceIndex];
 }
 
-std::vector<int> Model::faceTextureCoordinates(int idx) {
-    return faceTextureCoordinates_[idx];
+std::vector<int> Model::faceTextureIndices(int faceIndex) {
+    return faceTextureIndices_[faceIndex];
 }
 
 Vec3f Model::vert(int i) {
