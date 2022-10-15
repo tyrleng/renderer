@@ -6,6 +6,7 @@
 #include "stdlib.h"
 #include <limits>
 #include <stdio.h>
+#include <iostream>
 
 const TGAColor white = TGAColor(255,255,255,255);
 const TGAColor red = TGAColor(255,0,0,255);
@@ -16,7 +17,7 @@ const TGAColor blue = TGAColor(0,0,255,255);
 const int width  = 900;
 const int height = 900;
 
-float* Interpolate (int x0, int y0, int x1, int y1) {
+float* Interpolate (int x0, float y0, int x1, float y1) {
     if(x0 == x1) {
         float* dependentValue = (float*)malloc(sizeof(float)*1);
         dependentValue[0] = y0;
@@ -186,22 +187,27 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
     Vec3i v1 = ConvertIntoScreenCoordAndZBuffer(world_coords[1]);
     Vec3i v2 = ConvertIntoScreenCoordAndZBuffer(world_coords[2]);
 
+    // std::cout <<"before: " << texture_coords[0] << " / " << texture_coords[1] << " / " << texture_coords[2];
+
     // unsure what's the value of swapping the world_coords, don't think they're used.
+    // the swapping of the vec3f of textures should work, tested 151022 1430.
     if(v0.y > v1.y) {
-        SwapVec3fVertices(world_coords[0], world_coords[1]);
+        // SwapVec3fVertices(world_coords[0], world_coords[1]);
         SwapVec3fVertices(texture_coords[0], texture_coords[1]);
         SwapVec3iVertices(v0,v1); // v1 cfm more than v0
     }
     if(v0.y > v2.y) {
-        SwapVec3fVertices(world_coords[0], world_coords[2]);
+        // SwapVec3fVertices(world_coords[0], world_coords[2]);
         SwapVec3fVertices(texture_coords[0], texture_coords[2]);
         SwapVec3iVertices(v0,v2); // v2 and v1 cfm more than v0
     }
     if(v1.y > v2.y) {
-        SwapVec3fVertices(world_coords[1], world_coords[2]);
+        // SwapVec3fVertices(world_coords[1], world_coords[2]);
         SwapVec3fVertices(texture_coords[1], texture_coords[2]);
         SwapVec3iVertices(v1,v2); // v2 cfm more than v1
     }
+
+    // std::cout <<"after: " << texture_coords[0] << " / " << texture_coords[1] << " / " << texture_coords[2] << "\n";
 
     // for each y value on the edge, get the interpolated x values.
     float* x01_InterpolatedValues = Interpolate(v0.y, v0.x, v1.y, v1.x);
@@ -214,14 +220,14 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
     float* z02_InterpolatedValues = Interpolate(v0.y, v0.z, v2.y, v2.z); // remember that z02 is the longest edge.
 
     // for each y value on the edge, get the interpolated u texture value (remember that the texture values are still normalised)
-    float* u01_Interpolated = Interpolate(v0.y, (int)texture_coords[0].x, v1.y,(int)texture_coords[1].x);
-    float* u12_Interpolated = Interpolate(v1.y, (int)texture_coords[1].x, v2.y,(int)texture_coords[2].x);
-    float* u02_Interpolated = Interpolate(v0.y, (int)texture_coords[0].x, v2.y,(int)texture_coords[2].x);
+    float* u01_Interpolated = Interpolate(v0.y, texture_coords[0].x, v1.y,texture_coords[1].x);
+    float* u12_Interpolated = Interpolate(v1.y, texture_coords[1].x, v2.y,texture_coords[2].x);
+    float* u02_Interpolated = Interpolate(v0.y, texture_coords[0].x, v2.y,texture_coords[2].x);
 
         // for each y value on the edge, get the interpolated v texture value (remember that the texture values are still normalised)
-    float* v01_Interpolated = Interpolate(v0.y, (int)texture_coords[0].y, v1.y,(int)texture_coords[1].y);
-    float* v12_Interpolated = Interpolate(v1.y, (int)texture_coords[1].y, v2.y,(int)texture_coords[2].y);
-    float* v02_Interpolated = Interpolate(v0.y, (int)texture_coords[0].y, v2.y,(int)texture_coords[2].y);
+    float* v01_Interpolated = Interpolate(v0.y, texture_coords[0].y, v1.y,texture_coords[1].y);
+    float* v12_Interpolated = Interpolate(v1.y, texture_coords[1].y, v2.y,texture_coords[2].y);
+    float* v02_Interpolated = Interpolate(v0.y, texture_coords[0].y, v2.y,texture_coords[2].y);
 
     // combine the two lines to form the other side of the triangle.
     float* x012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
@@ -253,6 +259,7 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
     float* v_LeftInterpolatedValues;
     float* v_RightInterpolatedValues;
 
+    // check which line is on the left and which is on the right.
     int middleIndex = (v2.y - v0.y) / 2 + 1;
     if(x012_InterpolatedValues[middleIndex] < x02_InterpolatedValues[middleIndex]) {
         x_LeftInterpolatedValues = x012_InterpolatedValues;
@@ -306,8 +313,14 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
             if(zBuffer[bufferIndex] < zValue) {
                 zBuffer[bufferIndex] = zValue;
 
+                std::cout << "u coord: " << interpolatedU[x-xStart] << "\n";
+                std::cout << "v coord: " << interpolatedV[x-xStart] << "\n";
+
                 int uCoord = (int)(interpolatedU[x-xStart] * textureImageWidth);
                 int vCoord = (int)(interpolatedV[x-xStart] * textureImageHeight);
+
+                // std::cout << "u coord: " << uCoord << "\n";
+                // std::cout << "v coord: " << vCoord << "\n";
 
                 TGAColor texturePixel = textureImage.get(uCoord, vCoord);
                 image.set(x, y, texturePixel);

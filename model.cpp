@@ -23,24 +23,31 @@ Model::Model(const char *filename) : verts_(), faceVertexIndices_(), faceTexture
             }
             verts_.push_back(v);
         }
-
-        else if(!line.compare(0,3, "vt ")) {
+        // 151022 1400: verified correct.
+        else if(!line.compare(0, 3, "vt ")) {
             iss >> trash;
+            // std::cout << trash;
+            iss >> trash;
+            // std::cout << trash << "\n";
             Vec3f vt;
             for (int i=0;i<3;i++) {
                 iss >> vt.raw[i];
+                // std::cout << i << ": " << vt.raw[i] << "\n";
             }
             vertTextures_.push_back(vt);
         }
-        
+        // verified correct 151022 1400
          else if (!line.compare(0, 2, "f ")) {
             std::vector<int> verticesIndex, texturesIndex;
             int vertex, texture, normal;
             iss >> trash; // trashes the 'f' character
             while (iss >> vertex >> trash >> texture >> trash >> normal) {
                 // The three numbers (vertex, texture, normal) held by each group are the vertex coordinates, the texture coordinate and the vertex normal.
-                // trash throws away the forward slashes (/)
+                // trash throws away the forward slashes (/) that separate the numbers.
                 vertex--; // in wavefront obj all indices start at 1, not zero. So need to adjust by -1.
+                texture--; // in wavefront obj all indices start at 1, not zero. So need to adjust by -1.
+                // std::cout << "v: " << vertex << "\n";
+                // std::cout << "vt: " << texture << "\n";
                 verticesIndex.push_back(vertex); // will gain 3 index values per face
                 texturesIndex.push_back(texture); // will gain 3 index values per face
             }
