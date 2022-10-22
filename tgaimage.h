@@ -65,7 +65,7 @@ protected:
 	unsigned char* data;
 	int width;
 	int height;
-	int bytespp;
+	int bytespp; // means bytes per pixel
 
 	bool   load_rle_data(std::ifstream &in);
 	bool unload_rle_data(std::ofstream &out);

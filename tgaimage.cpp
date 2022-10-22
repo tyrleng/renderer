@@ -59,15 +59,16 @@ bool TGAImage::read_tga_file(const char *filename) {
 	}
 	width   = header.width;
 	height  = header.height;
-	bytespp = header.bitsperpixel>>3;
+	bytespp = header.bitsperpixel>>3; // effectively doing division by 8?
 	if (width<=0 || height<=0 || (bytespp!=GRAYSCALE && bytespp!=RGB && bytespp!=RGBA)) {
 		in.close();
 		std::cerr << "bad bpp (or width/height) value\n";
 		return false;
 	}
 	unsigned long nbytes = bytespp*width*height;
-	data = new unsigned char[nbytes];
-	if (3==header.datatypecode || 2==header.datatypecode) {
+	data = new unsigned char[nbytes]; // essentially storing 1 byte per index value. Every 3 bytes then forms the value for 1 pixel.
+	// 3 means uncompressed grayscale, 2 means uncompressed true-color
+	if (3==header.datatypecode || 2==header.datatypecode) { 
 		in.read((char *)data, nbytes);
 		if (!in.good()) {
 			in.close();
@@ -85,6 +86,7 @@ bool TGAImage::read_tga_file(const char *filename) {
 		std::cerr << "unknown file format " << (int)header.datatypecode << "\n";
 		return false;
 	}
+	// something about pixel ordering
 	if (!(header.imagedescriptor & 0x20)) {
 		flip_vertically();
 	}
