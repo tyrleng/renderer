@@ -296,10 +296,10 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
         int zStart = z_LeftInterpolatedValues[y-v0.y];
         int zEnd = z_RightInterpolatedValues[y-v0.y];
 
-        int uStart = u_LeftInterpolatedValues[y-v0.y];
-        int uEnd = u_RightInterpolatedValues[y-v0.y];
-        int vStart = v_LeftInterpolatedValues[y-v0.y];
-        int vEnd = v_RightInterpolatedValues[y-v0.y];
+        float uStart = u_LeftInterpolatedValues[y-v0.y];
+        float uEnd = u_RightInterpolatedValues[y-v0.y];
+        float vStart = v_LeftInterpolatedValues[y-v0.y];
+        float vEnd = v_RightInterpolatedValues[y-v0.y];
 
         // interpolate the values of z from one edge to another.
         // the previous z interpolations determined the value of z at the edges. But now you want to know the value of z at every pixel within the horizontal line being drawn.
@@ -313,8 +313,8 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
             if(zBuffer[bufferIndex] < zValue) {
                 zBuffer[bufferIndex] = zValue;
 
-                std::cout << "u coord: " << interpolatedU[x-xStart] << "\n";
-                std::cout << "v coord: " << interpolatedV[x-xStart] << "\n";
+                // std::cout << "u coord: " << interpolatedU[x-xStart] << "\n";
+                // std::cout << "v coord: " << interpolatedV[x-xStart] << "\n";
 
                 int uCoord = (int)(interpolatedU[x-xStart] * textureImageWidth);
                 int vCoord = (int)(interpolatedV[x-xStart] * textureImageHeight);
@@ -383,7 +383,8 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
     Vec3f light_dir(0,0,-1); // define light_dir, I guess it's using right hand coord system?
 
     TGAImage textureImage;
-    textureImage.read_tga_file("obj/african_head_diffuse.tga");
+    textureImage.read_tga_file("obj/diablo3_pose_diffuse.tga");
+    textureImage.flip_vertically();
 
     for (int i=0; i<model->nfaces(); i++) {
         std::vector<int> faceVertices = model->faceVertexIndices(i); // returns the 3 coordinate indices for the face.
@@ -415,7 +416,7 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
     }
     image.flip_vertically();
     // image.write_tga_file("outputFlatIlluminatedDepthHead.tga");
-    image.write_tga_file("outputShadedHead.tga");
+    image.write_tga_file("outputDiablo.tga");
 }
 
 // Read in texture file.
@@ -429,11 +430,11 @@ int main(int argc, char** argv) {
     if (2==argc) {
         model = new Model(argv[1]);
     } else {
-        model = new Model("obj/african_head.obj");
+        model = new Model("obj/diablo.obj");
     }
     TGAImage image(width, height, TGAImage::RGB);
-    // DrawLineOrFilledHead(model, image);    
     // DrawSimpleFilledTriangles(image);
+    // DrawLineOrFilledHead(model, image);    
     DrawFlatIlluminatedHead(model, image);
     return 0;
 }
