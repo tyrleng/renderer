@@ -15,7 +15,7 @@ public:
 	~Model();
 	int nverts();
 	int nfaces();
-	Vec3f vert(int i);
+	Vec3f vertPositions(int i);
 	Vec3f vertTextures(int i);
 	std::vector<int> faceVertexIndices(int faceIndex);
 	std::vector<int> faceTextureIndices(int faceIndex);

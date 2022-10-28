@@ -77,7 +77,7 @@ std::vector<int> Model::faceTextureIndices(int faceIndex) {
     return faceTextureIndices_[faceIndex];
 }
 
-Vec3f Model::vert(int i) {
+Vec3f Model::vertPositions(int i) {
     return verts_[i];
 }
 

@@ -8,12 +8,6 @@
 #include <stdio.h>
 #include <iostream>
 
-const TGAColor white = TGAColor(255,255,255,255);
-const TGAColor red = TGAColor(255,0,0,255);
-const TGAColor green = TGAColor(0,255,0,255);
-const TGAColor yellow = TGAColor(255,255,0,255);
-const TGAColor blue = TGAColor(0,0,255,255);
-
 const int width  = 900;
 const int height = 900;
 
@@ -87,19 +81,21 @@ void DrawLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
     }
 }
 
-void DrawLineTriangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
-    DrawLine(v0, v1,image,color);
-    DrawLine(v0, v2,image,color);
-    DrawLine(v1, v2,image,color);
-}
-
 void Swap2dVertices(Vec2i &v0, Vec2i &v1) {
     Vec2i interim = v0;
     v0 = v1;
     v1 = interim;
 }
 
-void DrawFilledTriangle(Vec2i screen_coords[], float zValue[], TGAImage &image, TGAColor color) {
+// Was code to draw simple triangles, not used except as proof of progress
+void RenderSimpleLineTriangle(Vec2i v0, Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
+    DrawLine(v0, v1,image,color);
+    DrawLine(v0, v2,image,color);
+    DrawLine(v1, v2,image,color);
+}
+
+// Was code to draw simple triangles, not used except as proof of progress
+void RenderSimpleFilledTriangle(Vec2i screen_coords[], TGAImage &image, TGAColor color) {
 
     Vec2i v0 = screen_coords[0];
     Vec2i v1 = screen_coords[1];
@@ -164,7 +160,7 @@ void SwapVec3fVertices(Vec3f &v0, Vec3f &v1) {
     v1 = swap;
 }
 
-Vec3i ConvertIntoScreenCoordAndZBuffer(Vec3f v) {
+Vec3i ConvertIntoScreenCoord(Vec3f v) {
     int x = (v.x+1.)*width/2.;
     int y = (v.y+1.)*height/2.;
     // using height as the scaling value is arbitrary. Just needed to convert the z values into bigger integer values so that they won't cause problems with all the integer calculations and functions.
@@ -182,32 +178,25 @@ float* GetZBuffer() {
     return zBuffer;
 }
 
-void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[], TGAImage &image, TGAImage &textureImage, float lightIntensity) {
-    Vec3i v0 = ConvertIntoScreenCoordAndZBuffer(world_coords[0]);
-    Vec3i v1 = ConvertIntoScreenCoordAndZBuffer(world_coords[1]);
-    Vec3i v2 = ConvertIntoScreenCoordAndZBuffer(world_coords[2]);
-
-    // std::cout <<"before: " << texture_coords[0] << " / " << texture_coords[1] << " / " << texture_coords[2];
-
-    // unsure what's the value of swapping the world_coords, don't think they're used.
-    // the swapping of the vec3f of textures should work, tested 151022 1430.
+// The main method.
+// Does z-buffer check.
+// Does conversion from world to camera to viewport to screen coordinates.
+void DrawTriangle(Vec3f world_coords[], Vec3f texture_coords[], TGAImage &image, TGAImage &textureImage, float lightIntensity) {
+    Vec3i v0 = ConvertIntoScreenCoord(world_coords[0]);
+    Vec3i v1 = ConvertIntoScreenCoord(world_coords[1]);
+    Vec3i v2 = ConvertIntoScreenCoord(world_coords[2]);
     if(v0.y > v1.y) {
-        // SwapVec3fVertices(world_coords[0], world_coords[1]);
         SwapVec3fVertices(texture_coords[0], texture_coords[1]);
         SwapVec3iVertices(v0,v1); // v1 cfm more than v0
     }
     if(v0.y > v2.y) {
-        // SwapVec3fVertices(world_coords[0], world_coords[2]);
         SwapVec3fVertices(texture_coords[0], texture_coords[2]);
         SwapVec3iVertices(v0,v2); // v2 and v1 cfm more than v0
     }
     if(v1.y > v2.y) {
-        // SwapVec3fVertices(world_coords[1], world_coords[2]);
         SwapVec3fVertices(texture_coords[1], texture_coords[2]);
         SwapVec3iVertices(v1,v2); // v2 cfm more than v1
     }
-
-    // std::cout <<"after: " << texture_coords[0] << " / " << texture_coords[1] << " / " << texture_coords[2] << "\n";
 
     // for each y value on the edge, get the interpolated x values.
     float* x01_InterpolatedValues = Interpolate(v0.y, v0.x, v1.y, v1.x);
@@ -224,17 +213,16 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
     float* u12_Interpolated = Interpolate(v1.y, texture_coords[1].x, v2.y,texture_coords[2].x);
     float* u02_Interpolated = Interpolate(v0.y, texture_coords[0].x, v2.y,texture_coords[2].x);
 
-        // for each y value on the edge, get the interpolated v texture value (remember that the texture values are still normalised)
+    // for each y value on the edge, get the interpolated v texture value (remember that the texture values are still normalised)
     float* v01_Interpolated = Interpolate(v0.y, texture_coords[0].y, v1.y,texture_coords[1].y);
     float* v12_Interpolated = Interpolate(v1.y, texture_coords[1].y, v2.y,texture_coords[2].y);
     float* v02_Interpolated = Interpolate(v0.y, texture_coords[0].y, v2.y,texture_coords[2].y);
 
-    // combine the two lines to form the other side of the triangle.
+    // combine the two shorter lines to form the other side of the triangle. Guaranteed to be from 0-1 then from 1-2.  
     float* x012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
     float* z012_InterpolatedValues = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1)); // allocate array space for the 2 shorter sides combined together.
     float* u012_Interpolated = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1));
     float* v012_Interpolated = (float*)malloc(sizeof(float) * (v2.y - v0.y + 1));
-
     for(int y = v0.y; y < v1.y; y++) {
         x012_InterpolatedValues[y-v0.y] = x01_InterpolatedValues[y-v0.y];
         z012_InterpolatedValues[y-v0.y] = z01_InterpolatedValues[y-v0.y];
@@ -259,7 +247,7 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
     float* v_LeftInterpolatedValues;
     float* v_RightInterpolatedValues;
 
-    // check which line is on the left and which is on the right.
+    // check which line is on the left and which is on the right. Does so by comparing the mid value of the x coordinates on the interpolated lines.
     int middleIndex = (v2.y - v0.y) / 2 + 1;
     if(x012_InterpolatedValues[middleIndex] < x02_InterpolatedValues[middleIndex]) {
         x_LeftInterpolatedValues = x012_InterpolatedValues;
@@ -288,9 +276,9 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
     int textureImageWidth = textureImage.get_width();
     int textureImageHeight = textureImage.get_height();
 
-    // then interpolate the values between the two lines.
-    // for each interpolation, draw the pixel values.
+    // then interpolate the values between the two lines. Since we're going horizontal, the interpolation this time is based on the x coordinate values.
     for(int y = v0.y; y <= v2.y; y++) {
+        // assigning these start and end values mostly for convenience, not strictly necessary.
         int xStart = x_LeftInterpolatedValues[y-v0.y];
         int xEnd = x_RightInterpolatedValues[y-v0.y];
         int zStart = z_LeftInterpolatedValues[y-v0.y];
@@ -301,26 +289,21 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
         float vStart = v_LeftInterpolatedValues[y-v0.y];
         float vEnd = v_RightInterpolatedValues[y-v0.y];
 
-        // interpolate the values of z from one edge to another.
+        // interpolate the values of z, u and v from one edge to another.
         // the previous z interpolations determined the value of z at the edges. But now you want to know the value of z at every pixel within the horizontal line being drawn.
         float* interpolatedZ = Interpolate(xStart, zStart, xEnd, zEnd);
         float* interpolatedU = Interpolate(xStart, uStart, xEnd, uEnd);
         float* interpolatedV = Interpolate(xStart, vStart, xEnd, vEnd);
         
         for(int x = xStart; x <= xEnd; x++) {
+            // have to check the z-buffer for this pixel. Are there previous existing values for this pixel? If so, does this new value have a z-value greater than the previous value?
             int bufferIndex = y * height + x;
             float zValue = interpolatedZ[x - xStart];
             if(zBuffer[bufferIndex] < zValue) {
                 zBuffer[bufferIndex] = zValue;
 
-                // std::cout << "u coord: " << interpolatedU[x-xStart] << "\n";
-                // std::cout << "v coord: " << interpolatedV[x-xStart] << "\n";
-
                 int uCoord = (int)(interpolatedU[x-xStart] * textureImageWidth);
                 int vCoord = (int)(interpolatedV[x-xStart] * textureImageHeight);
-
-                // std::cout << "u coord: " << uCoord << "\n";
-                // std::cout << "v coord: " << vCoord << "\n";
 
                 TGAColor texturePixel = textureImage.get(uCoord, vCoord);
                 image.set(x, y, texturePixel);
@@ -336,48 +319,57 @@ void DrawFilledTriangleExperimental(Vec3f world_coords[], Vec3f texture_coords[]
 //--------DRIVING CODE-----------
 
 void DrawSimpleFilledTriangles(TGAImage &image) {
-    Vec2i t0[3] = {Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80)}; 
+
+    const TGAColor white = TGAColor(255,255,255,255);
+    const TGAColor red = TGAColor(255,0,0,255);
+    const TGAColor green = TGAColor(0,255,0,255);
+    const TGAColor yellow = TGAColor(255,255,0,255);
+    const TGAColor blue = TGAColor(0,0,255,255);
+
+    Vec2i t0[3] = {Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80)};
     Vec2i t1[3] = {Vec2i(180, 50),  Vec2i(150, 1),   Vec2i(70, 180)}; 
     Vec2i t2[3] = {Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180)};
     Vec2i t3[3] = {Vec2i(200, 50), Vec2i(230, 280), Vec2i(260, 140)};
     Vec2i t4[3] = {Vec2i(10,200), Vec2i(80, 280), Vec2i(140, 210)};
-    DrawFilledTriangle(t0, NULL, image, red); 
-    DrawFilledTriangle(t1, NULL, image, white); 
-    DrawFilledTriangle(t2, NULL, image, green);
-    DrawFilledTriangle(t3, NULL, image, yellow);
-    DrawFilledTriangle(t4, NULL, image, blue);
+    RenderSimpleFilledTriangle(t0, image, red); 
+    RenderSimpleFilledTriangle(t1, image, white); 
+    RenderSimpleFilledTriangle(t2, image, green);
+    RenderSimpleFilledTriangle(t3, image, yellow);
+    RenderSimpleFilledTriangle(t4, image, blue);
     image.flip_vertically();
-    image.write_tga_file("outputTriangle.tga");
+    image.write_tga_file("./output/SimpleFilledTriangle.tga");
 }
 
-// void DrawLineOrFilledHead(Model* model, TGAImage &image) {
+// No z-buffer checking
+// No lighting calculation
+void DrawSimpleLineOrFilledHead(Model* model, TGAImage &image) {
     
-//     for (int i=0; i<model->nfaces(); i++) {
-//         std::vector<int> face = model->face(i);
+    for (int i=0; i<model->nfaces(); i++) {
+        std::vector<int> face = model->faceVertexIndices(i);
 
-//         Vec2i* screen_coords = (Vec2i*)malloc(sizeof(Vec2i) * 3);
+        Vec2i* screen_coords = (Vec2i*)malloc(sizeof(Vec2i) * 3);
 
-//         // for every vertex in the face
-//         for (int j=0; j<3; j++) { 
+        // for every vertex in the face
+        for (int j=0; j<3; j++) { 
 
-//             Vec3f vertInWorld = model->vert(face[j]);
-//             // the wavefront obj vertices are stored in normalised range of (-1 to 1). By adding 1, we normalise to (0,2).
-//             // That's why division by 2 happens, to normalise down to (0,1).
-//             int x = (vertInWorld.x+1.)*width/2.;
-//             int y = (vertInWorld.y+1.)*height/2.;            
+            Vec3f vertInWorld = model->vertPositions(face[j]);
+            // the wavefront obj vertices are stored in normalised range of (-1 to 1). By adding 1, we normalise to (0,2).
+            // That's why division by 2 happens, to normalise down to (0,1).
+            int x = (vertInWorld.x+1.)*width/2.;
+            int y = (vertInWorld.y+1.)*height/2.;            
 
-//             screen_coords[j] = Vec2i(x,y);
+            screen_coords[j] = Vec2i(x,y);
 
-//         }
-//         DrawFilledTriangle(screen_coords, NULL, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
-//         DrawLineTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
-//     }
+        }
+        RenderSimpleFilledTriangle(screen_coords, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
+        RenderSimpleLineTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
+    }
 
-//     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image.
-//     image.write_tga_file("outputFilledTriangleHead.tga");
-//     // image.write_tga_file("outputLIneTriangleHead.tga");
-//     delete model;
-// }
+    image.flip_vertically(); // i want to have the origin at the left bottom corner of the image.
+    image.write_tga_file("outputFilledTriangleHead.tga");
+    // image.write_tga_file("outputLIneTriangleHead.tga");
+    delete model;
+}
 
 void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
     Vec3f light_dir(0,0,-1); // define light_dir, I guess it's using right hand coord system?
@@ -391,15 +383,11 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
         std::vector<int> faceTextures = model->faceTextureIndices(i); // returns the 3 texture indices for the face.
         Vec3f* world_coords = (Vec3f*)malloc(sizeof(Vec3f) * 3);
         Vec3f* texture_coords = (Vec3f*)malloc(sizeof(Vec3f) * 3);
-        // Vec2i screen_coords[3];
        for (int j=0; j<3; j++) {
-            Vec3f v = model->vert(faceVertices[j]); // get the actual vertex coordinate values based on the index passed in from the face. The Vec3f encapsulates the x,y,z values.
+            Vec3f v = model->vertPositions(faceVertices[j]); // get the actual vertex coordinate values based on the index passed in from the face. The Vec3f encapsulates the x,y,z values.
             world_coords[j]  = v; // every 3 vertex coordinate values form one world_coords face.
             Vec3f uv = model->vertTextures(faceTextures[j]); // get the actual vertex texture coordinate values based on the index passed in from the face. The Vec3f encapsulates the u,v,z values.
             texture_coords[j] = uv; // every 3 values form one texture_coords face.
-            
-            // from "camera space" to screen space. But there isn't really a camera yet.
-            // screen_coords[j] = Vec2i((v.x+1.)*width/2., (v.y+1.)*height/2.); 
         }
         // cross product of the two lines of the triangles. Gives the normal of triangle.
         Vec3f n = (world_coords[2]-world_coords[0])^(world_coords[1]-world_coords[0]); 
@@ -410,7 +398,7 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
 
             // Need to pass in texture. The texture needs to then be interpolated.
             // DrawFilledTriangleExperimental(world_coords, texture_coords, image, textureImage, TGAColor(intensity*255, intensity*255, intensity*255, 255));
-            DrawFilledTriangleExperimental(world_coords, texture_coords, image, textureImage, intensity);
+            DrawTriangle(world_coords, texture_coords, image, textureImage, intensity);
         }
         free(world_coords);
     }
@@ -433,8 +421,8 @@ int main(int argc, char** argv) {
         model = new Model("obj/diablo.obj");
     }
     TGAImage image(width, height, TGAImage::RGB);
-    // DrawSimpleFilledTriangles(image);
+    DrawSimpleFilledTriangles(image);
     // DrawLineOrFilledHead(model, image);    
-    DrawFlatIlluminatedHead(model, image);
+    // DrawFlatIlluminatedHead(model, image);
     return 0;
 }
