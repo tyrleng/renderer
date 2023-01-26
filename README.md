@@ -1,6 +1,6 @@
 My attempt to write a simple software rasterizer.  
 
-The two main sources consulted were the[tinyrenderer project](https://github.com/ssloy/tinyrenderer) and the [Computer Graphics from Scratch book](https://www.gabrielgambetta.com/computer-graphics-from-scratch/)  
+The two main sources consulted were the [tinyrenderer project](https://github.com/ssloy/tinyrenderer) and the [Computer Graphics from Scratch book](https://www.gabrielgambetta.com/computer-graphics-from-scratch/)  
 
 To run, download, run `make all` then run `./main` on a linux machine.  
 
