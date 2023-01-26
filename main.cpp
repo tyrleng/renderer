@@ -181,7 +181,7 @@ float* GetZBuffer() {
 // The main method.
 // Does z-buffer check.
 // Does conversion from world to camera to viewport to screen coordinates.
-void DrawTriangle(Vec3f world_coords[], Vec3f texture_coords[], TGAImage &image, TGAImage &textureImage, float lightIntensity) {
+void DrawTriangle(Vec3f world_coords[], Vec3f texture_coords[], TGAImage &image, TGAImage &textureImage) {
     Vec3i v0 = ConvertIntoScreenCoord(world_coords[0]);
     Vec3i v1 = ConvertIntoScreenCoord(world_coords[1]);
     Vec3i v2 = ConvertIntoScreenCoord(world_coords[2]);
@@ -278,7 +278,7 @@ void DrawTriangle(Vec3f world_coords[], Vec3f texture_coords[], TGAImage &image,
 
     // then interpolate the values between the two lines. Since we're going horizontal, the interpolation this time is based on the x coordinate values.
     for(int y = v0.y; y <= v2.y; y++) {
-        // assigning these start and end values mostly for convenience, not strictly necessary.
+        // assigning these start and end values are mostly for convenience, not strictly necessary.
         int xStart = x_LeftInterpolatedValues[y-v0.y];
         int xEnd = x_RightInterpolatedValues[y-v0.y];
         int zStart = z_LeftInterpolatedValues[y-v0.y];
@@ -308,9 +308,6 @@ void DrawTriangle(Vec3f world_coords[], Vec3f texture_coords[], TGAImage &image,
                 TGAColor texturePixel = textureImage.get(uCoord, vCoord);
                 image.set(x, y, texturePixel);
             }
-            // For each pixel value, determine if the pixel should or shouldn't be displayed.
-            // If displayed, write the z value to the depth buffer. Later pixels will then need to challenge this depth value.
-
             // Scratch used perspective projection, but tiny just goes from camera to canvas. No perspective projection into viewport first.
         }
     }
@@ -342,7 +339,7 @@ void DrawSimpleFilledTriangles(TGAImage &image) {
 
 // No z-buffer checking
 // No lighting calculation
-void DrawSimpleLineOrFilledHead(Model* model, TGAImage &image) {
+void DrawSimpleLineOrFilledModelTriangles(Model* model, TGAImage &image) {
     
     for (int i=0; i<model->nfaces(); i++) {
         std::vector<int> face = model->faceVertexIndices(i);
@@ -361,17 +358,20 @@ void DrawSimpleLineOrFilledHead(Model* model, TGAImage &image) {
             screen_coords[j] = Vec2i(x,y);
 
         }
+
+        // RenderSimpleLineTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
         RenderSimpleFilledTriangle(screen_coords, image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
-        RenderSimpleLineTriangle(screen_coords[0], screen_coords[1], screen_coords[2], image, TGAColor(rand()%255, rand()%255, rand()%255, 255));
     }
 
     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image.
-    image.write_tga_file("outputFilledTriangleHead.tga");
-    // image.write_tga_file("outputLIneTriangleHead.tga");
+    // image.write_tga_file("./output/LineTriangleModel.tga");
+    // Enabling this also requires enabling RenderSimpleFilledTriangle()
+    image.write_tga_file("./output/FilledTriangleModel.tga");
+
     delete model;
 }
 
-void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
+void DrawModel(Model* model, TGAImage &image) {
     Vec3f light_dir(0,0,-1); // define light_dir, I guess it's using right hand coord system?
 
     TGAImage textureImage;
@@ -394,17 +394,12 @@ void DrawFlatIlluminatedHead(Model* model, TGAImage &image) {
         n.normalize();
         float intensity = n*light_dir; // dot product for the degree to which the light vector and the normal are parallel. The more the better illuminated.
         if (intensity>0) {
-            // DrawFilledTriangle(screen_coords, NULL, image, TGAColor(intensity*255, intensity*255, intensity*255, 255));
-
-            // Need to pass in texture. The texture needs to then be interpolated.
-            // DrawFilledTriangleExperimental(world_coords, texture_coords, image, textureImage, TGAColor(intensity*255, intensity*255, intensity*255, 255));
-            DrawTriangle(world_coords, texture_coords, image, textureImage, intensity);
+            DrawTriangle(world_coords, texture_coords, image, textureImage);
         }
         free(world_coords);
     }
     image.flip_vertically();
-    // image.write_tga_file("outputFlatIlluminatedDepthHead.tga");
-    image.write_tga_file("outputDiablo.tga");
+    image.write_tga_file("./output/Model.tga");
 }
 
 // Read in texture file.
@@ -421,8 +416,8 @@ int main(int argc, char** argv) {
         model = new Model("obj/diablo.obj");
     }
     TGAImage image(width, height, TGAImage::RGB);
-    DrawSimpleFilledTriangles(image);
-    // DrawLineOrFilledHead(model, image);    
-    // DrawFlatIlluminatedHead(model, image);
+    // DrawSimpleFilledTriangles(image);
+    DrawSimpleLineOrFilledModelTriangles(model, image); 
+    // DrawModel(model, image);
     return 0;
 }
